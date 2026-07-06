@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <unistd.h>//not available in windows so using WSL ubuntu with vscode using c/c++ extension for intellisense.
 #include <linux/limits.h>//this gives us path_max
+#include <string.h>
+#include "tokeniser.h"
 
 //The main loop of a shell is
 /*
@@ -27,6 +29,27 @@ int main(){
     char buff[PATH_MAX];
     getcwd(buff, sizeof(buff));
     printf("%s$", buff);
+    
+    //loop input.
+    char* line = NULL;
+    char** args = NULL;
+    size_t length = 0;
 
+
+    getline(&line, &length, stdin);
+    args = tokenise(line);
+
+    if(*(args + 0) != NULL){
+        printf("The command is %s\n", (*(args+0)));
+        int i = 1;
+        printf("With the flags\n");
+        while(*(args + i) != NULL){
+            printf("%s\n", *(args+i));
+            i++;
+        }
+    }
+    //printf("\n");
+    
+    free_tokens(args);
     return 0;
 }
