@@ -4,6 +4,7 @@
 #include <linux/limits.h>//this gives us path_max
 #include <string.h>
 #include "tokeniser.h"
+#include <sys/wait.h>
 
 //The main loop of a shell is
 /*
@@ -27,29 +28,53 @@ so "cd" would be internal, so would "exit", but "ls" not internal because it jus
 int main(){
 
     char buff[PATH_MAX];
-    getcwd(buff, sizeof(buff));
-    printf("%s$", buff);
-    
+   
     //loop input.
     char* line = NULL;
     char** args = NULL;
     size_t length = 0;
 
-
-    getline(&line, &length, stdin);
-    args = tokenise(line);
-
-    if(*(args + 0) != NULL){
-        printf("The command is %s\n", (*(args+0)));
-        int i = 1;
-        printf("With the flags\n");
-        while(*(args + i) != NULL){
-            printf("%s\n", *(args+i));
-            i++;
+    while(1){
+        if(getcwd(buff, sizeof(buff)) != NULL){
+            printf("%s$", buff);
+        }else{
+            printf("$\n");
         }
+
+        if(getline(&line, &length, stdin) == -1) break; //didnt have a command returned.
+
+        if((args = tokenise(line)) == NULL){
+            printf("ERROR parsing command\n");
+            continue;//continue here so we dont free_tokens a null 
+        }else if(*(args + 0) != NULL){
+            if(strcmp("exit", *(args+0)) == 0){
+                free_tokens(args);
+                exit(0);
+            }else if(strcmp("cd", *(args+0)) == 0){
+                if(*(args+1) == NULL){
+                    if(chdir(getenv("HOME")) == -1) perror("cd");
+                }else{
+                    if(chdir(*(args+1)) == -1) perror("cd");
+                }
+                
+            }else{
+                int pid = fork();
+                if(pid == 0){//child branch, execvp here.
+                    if(execvp(*(args+0),args) == -1){//execvp only returns -1 on fails, doesnt return anything at all if it doesnt.
+                        perror(*(args + 0));
+                        free_tokens(args);
+                        exit(1);
+                    }
+                }else if(pid == -1){//failure, perror.
+                    perror(*(args + 0));
+                }else{//positive number, shell branch. waitpid here.
+                    int status = 0;
+                    waitpid(pid,&status,0);
+                }
+            }
+        }
+        free_tokens(args);
     }
-    //printf("\n");
-    
-    free_tokens(args);
+    free(line);
     return 0;
 }
