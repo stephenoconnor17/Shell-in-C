@@ -33,6 +33,7 @@ int main(){
     char* line = NULL;
     char** args = NULL;
     size_t length = 0;
+    int lastStatus = 0;
 
     while(1){
         if(getcwd(buff, sizeof(buff)) != NULL){
@@ -49,6 +50,7 @@ int main(){
         }else if(*(args + 0) != NULL){
             if(strcmp("exit", *(args+0)) == 0){
                 free_tokens(args);
+                free(line);
                 exit(0);
             }else if(strcmp("cd", *(args+0)) == 0){
                 if(*(args+1) == NULL){
@@ -58,11 +60,12 @@ int main(){
                 }
                 
             }else{
-                int pid = fork();
+                pid_t pid = fork();
                 if(pid == 0){//child branch, execvp here.
                     if(execvp(*(args+0),args) == -1){//execvp only returns -1 on fails, doesnt return anything at all if it doesnt.
                         perror(*(args + 0));
                         free_tokens(args);
+                        free(line);
                         exit(1);
                     }
                 }else if(pid == -1){//failure, perror.
@@ -70,6 +73,7 @@ int main(){
                 }else{//positive number, shell branch. waitpid here.
                     int status = 0;
                     waitpid(pid,&status,0);
+                    if(WIFEXITED(status)) lastStatus = WEXITSTATUS(status); //set up for $? status checking.
                 }
             }
         }
